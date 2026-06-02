@@ -56,7 +56,6 @@ class CloudMockTest {
     @Test
     void closeStopsTheServer() {
         cloudMock.start();
-        int port = cloudMock.port();
         cloudMock.close();
         assertNull(System.getProperty("aws.endpoint-url"));
         assertThrows(CloudMockNotStartedException.class, cloudMock::port);
