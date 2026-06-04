@@ -2,6 +2,7 @@ package io.cloudmock.codegen;
 
 import software.amazon.smithy.aws.traits.ServiceTrait;
 import software.amazon.smithy.model.Model;
+import software.amazon.smithy.model.loader.ModelAssembler;
 import software.amazon.smithy.model.shapes.OperationShape;
 import software.amazon.smithy.model.shapes.ServiceShape;
 import software.amazon.smithy.model.shapes.Shape;
@@ -26,6 +27,17 @@ import java.util.stream.Collectors;
  */
 public class ModuleGenerator {
 
+    private final boolean verbose;
+
+    public ModuleGenerator() {
+        this(false);
+    }
+
+    /** @param verbose when true, print each suppressed model validation event in full. */
+    public ModuleGenerator(boolean verbose) {
+        this.verbose = verbose;
+    }
+
     public GenerationResult generate(Path modelPath, String coreVersion) {
         Model model = loadModel(modelPath);
 
@@ -45,6 +57,15 @@ public class ModuleGenerator {
                 .sorted(Comparator.comparing(s -> s.getId().getName()))
                 .collect(Collectors.toList());
 
+        // Hard gate: a service with no operations means the wrong file was passed, or the model failed
+        // to assemble structurally (validation is disabled, so this is our main safety net). Generating
+        // an empty module would silently produce a useless stub, so fail loudly instead.
+        if (operations.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Service '" + service.getId() + "' resolved 0 operations — "
+                    + "is this the right model file?");
+        }
+
         List<GeneratedFile> files = new ArrayList<>();
         files.add(buildGradle(serviceId, coreVersion));
         files.add(serviceClass(service, operations, protocol, pkg, className));
@@ -58,19 +79,30 @@ public class ModuleGenerator {
     }
 
     private Model loadModel(Path modelPath) {
+        // allowUnknownTraits: real-world AWS models use traits (smithy.rules, smithy.waiters)
+        //   not bundled with smithy-aws-traits — ignore them rather than failing.
+        // disableValidation: enum constraints in aws-traits (e.g. ChecksumAlgorithm) lag behind
+        //   the actual models; a code-gen tool needs structure, not strict trait validation.
         ValidatedResult<Model> result = Model.assembler()
+                .putProperty(ModelAssembler.ALLOW_UNKNOWN_TRAITS, true)
                 .discoverModels()
                 .addImport(modelPath)
+                .disableValidation()
                 .assemble();
-        result.getValidationEvents().stream()
+
+        // Validation is disabled (above), but the assembler still collects events. Surface the
+        // notable ones (DANGER + ERROR) so a malformed user model isn't silently accepted. We print
+        // a one-line count by default and the full messages only under --verbose, because real AWS
+        // models routinely trip lagging enum/trait constraints that are noise, not user errors.
+        List<ValidationEvent> notable = result.getValidationEvents().stream()
                 .filter(e -> e.getSeverity().ordinal() >= 3)
-                .forEach(e -> System.err.println("  [" + e.getSeverity() + "] " + e.getMessage()));
-        List<ValidationEvent> fatalErrors = result.getValidationEvents().stream()
-                .filter(e -> e.getSeverity().ordinal() >= 4)
                 .toList();
-        if (!fatalErrors.isEmpty()) {
-            throw new IllegalArgumentException(
-                    fatalErrors.size() + " model error(s) — fix them before generating.");
+        if (!notable.isEmpty()) {
+            System.err.println("  " + notable.size() + " model validation note(s) suppressed"
+                    + (verbose ? ":" : " — re-run with --verbose for details"));
+            if (verbose) {
+                notable.forEach(e -> System.err.println("    [" + e.getSeverity() + "] " + e.getMessage()));
+            }
         }
         return result.getResult().orElseThrow(
                 () -> new IllegalArgumentException("Model produced no output."));
