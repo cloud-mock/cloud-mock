@@ -3,6 +3,10 @@ package io.cloudmock.standalone;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.cloudmock.core.CloudMock;
+import io.cloudmock.core.spi.CloudMockApiService;
+import io.cloudmock.core.spi.HttpMethod;
+import io.cloudmock.core.spi.restapi.ApiResponse;
+import io.cloudmock.core.spi.restapi.ApiRouteRegistrar;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +18,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -114,8 +119,82 @@ class ApiServerIntegrationTest {
     }
 
     @Test
+    void openApiSpecDocumentsServiceQueryParameter() throws Exception {
+        JsonNode reset = getJson("/api/openapi.json").get("paths").get("/api/reset").get("post");
+        JsonNode params = reset.get("parameters");
+        assertNotNull(params, "Expected reset to declare query parameters");
+        assertEquals("service", params.get(0).get("name").asText());
+        assertEquals("query", params.get(0).get("in").asText());
+        assertFalse(params.get(0).get("required").asBoolean());
+    }
+
+    @Test
+    void openApiSpecListsItself() throws Exception {
+        assertNotNull(getJson("/api/openapi.json").get("paths").get("/api/openapi.json"));
+    }
+
+    @Test
+    void historyRecordsMatchedRequestWithServiceAndOperation() throws Exception {
+        sendSqsSendMessage();
+
+        JsonNode requests = getJson("/api/history?service=sqs").get("requests");
+        assertFalse(requests.isEmpty());
+        JsonNode latest = requests.get(0);
+        assertEquals("sqs", latest.get("serviceId").asText());
+        assertEquals("AmazonSQS.SendMessage", latest.get("operation").asText());
+        assertTrue(latest.get("matched").asBoolean());
+    }
+
+    @Test
+    void fullResetClearsHistory() throws Exception {
+        sendSqsSendMessage();
+        assertFalse(getJson("/api/history").get("requests").isEmpty());
+
+        assertEquals(200, post("/api/reset").statusCode());
+        assertTrue(getJson("/api/history").get("requests").isEmpty());
+    }
+
+    @Test
+    void singleServiceResetLeavesHistoryIntact() throws Exception {
+        sendSqsSendMessage();
+
+        assertEquals(200, post("/api/reset?service=sqs").statusCode());
+        assertFalse(getJson("/api/history").get("requests").isEmpty());
+    }
+
+    @Test
+    void moduleRoutesAreServedAndDiscoverable() throws Exception {
+        restartApiWith(new EchoApiService());
+
+        assertTrue(getJson("/api/test/echo").get("ok").asBoolean());
+
+        boolean listed = false;
+        for (JsonNode route : getJson("/api/status").get("routes")) {
+            if ("/api/test/echo".equals(route.get("path").asText())) {
+                listed = true;
+            }
+        }
+        assertTrue(listed, "Expected module route in /api/status routes list");
+    }
+
+    @Test
+    void handlerThrowingNullMessageReturns500WithJsonError() throws Exception {
+        restartApiWith(new EchoApiService());
+
+        HttpResponse<String> resp = get("/api/test/boom");
+        assertEquals(500, resp.statusCode());
+        assertNotNull(mapper.readTree(resp.body()).get("error"));
+    }
+
+    @Test
     void unknownPathReturns404() throws Exception {
         assertEquals(404, get("/api/no-such-route").statusCode());
+    }
+
+    @Test
+    void prefixCollidingPathReturns404() throws Exception {
+        // /api/status context matches by prefix; the exact-path guard must reject /api/statusEXTRA.
+        assertEquals(404, get("/api/statusEXTRA").statusCode());
     }
 
     @Test
@@ -132,6 +211,24 @@ class ApiServerIntegrationTest {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private void restartApiWith(CloudMockApiService... services) throws IOException {
+        apiServer.stop();
+        apiPort = freePort();
+        apiServer = new ApiServer(cloudMock, apiPort, List.of(services));
+        apiServer.start();
+    }
+
+    private void sendSqsSendMessage() throws IOException, InterruptedException {
+        HttpResponse<String> resp = http.send(
+                HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:" + cloudMock.port() + "/"))
+                        .header("X-Amz-Target", "AmazonSQS.SendMessage")
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"MessageBody\":\"hi\"}"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, resp.statusCode());
+    }
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
         return http.send(
@@ -159,6 +256,22 @@ class ApiServerIntegrationTest {
     private static int freePort() throws IOException {
         try (ServerSocket s = new ServerSocket(0)) {
             return s.getLocalPort();
+        }
+    }
+
+    /** Minimal module that exposes routes under {@code /api/test/…} for SPI coverage. */
+    private static final class EchoApiService implements CloudMockApiService {
+        @Override
+        public String serviceId() {
+            return "test";
+        }
+
+        @Override
+        public void registerRoutes(ApiRouteRegistrar registrar) {
+            registrar.register(HttpMethod.GET, "/echo", "echo ok",
+                    req -> new ApiResponse(200, Map.of("ok", true)));
+            registrar.register(HttpMethod.GET, "/boom", "always fails",
+                    req -> { throw new RuntimeException(); }); // null message — exercises sendError guard
         }
     }
 }
