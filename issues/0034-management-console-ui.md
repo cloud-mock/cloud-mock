@@ -43,8 +43,10 @@ face of CloudMock.
 
 ## Notes
 
+## Notes
+
+- Built with Angular. Bundled as static assets inside the JAR so standalone mode serves everything from a
+  single artifact.
 - Look at Grafana, Linear, and the Stripe dashboard as design references — developer tools that are both
   functional and well-crafted.
-- Technology choice is open but should support a strong component library. React with shadcn/ui or Tailwind
-  is a good fit for a polished result with minimal custom CSS.
-- Bundled as static assets inside the JAR so standalone mode serves everything from a single artifact.
+- PrimeNG are good component library options for a polished result without heavy custom CSS.
