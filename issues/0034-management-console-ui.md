@@ -43,8 +43,6 @@ face of CloudMock.
 
 ## Notes
 
-## Notes
-
 - Built with Angular. Bundled as static assets inside the JAR so standalone mode serves everything from a
   single artifact.
 - Look at Grafana, Linear, and the Stripe dashboard as design references — developer tools that are both
