@@ -102,6 +102,10 @@ operations are available without consulting documentation.
 Clears all state in the store. Use this to start each test scenario with a clean slate when
 running tests against a long-lived standalone process.
 
+A full reset (no `service`) also clears the request history. A single-service reset clears only
+that service's state and leaves the history intact — the history is one shared journal with no
+per-service partition.
+
 === "Clear everything"
 
     ```
@@ -172,6 +176,10 @@ HTTP status code returned.
 Unmatched requests — those not handled by any registered stub — appear with `"matched": false`
 and `"serviceId": null`. They are the most common source of integration issues; check the `url`
 field to diagnose why a stub did not match.
+
+The history is capped at the last 1000 requests by default so a long-lived process does not grow
+without bound. Change the cap with `--max-history=<n>` (or `CLOUDMOCK_MAX_HISTORY`); pass
+`--max-history=unlimited` to retain everything.
 
 ---
 

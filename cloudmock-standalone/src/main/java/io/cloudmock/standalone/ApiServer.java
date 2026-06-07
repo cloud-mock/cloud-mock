@@ -17,6 +17,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -69,8 +71,6 @@ public final class ApiServer implements Closeable {
         registerCoreRoutes();
         registerModuleRoutes();
 
-        server.createContext("/api/openapi.json", this::handleOpenApi);
-
         server.setExecutor(Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "cloudmock-api");
             t.setDaemon(true);
@@ -109,6 +109,8 @@ public final class ApiServer implements Closeable {
                 List.of(SERVICE_PARAM), this::handleReset);
         addRoute("GET",  "/api/history", "Captured request log, optionally filtered with ?service=X",
                 List.of(SERVICE_PARAM), this::handleHistory);
+        addRoute("GET",  "/api/openapi.json", "OpenAPI 3.0 spec auto-generated from registered routes",
+                List.of(), req -> new ApiResponse(200, buildOpenApiSpec()));
     }
 
     private void registerModuleRoutes() {
@@ -129,6 +131,12 @@ public final class ApiServer implements Closeable {
                           List<QueryParam> queryParams, RouteHandler handler) {
         routes.add(new RouteDescriptor(method, path, description, queryParams));
         server.createContext(path, exchange -> {
+            // HttpServer contexts match by path prefix; require an exact path so that, e.g.,
+            // /api/statusEXTRA does not fall through to the /api/status handler.
+            if (!path.equals(exchange.getRequestURI().getPath())) {
+                sendError(exchange, 404, "Not Found");
+                return;
+            }
             if (!method.equals(exchange.getRequestMethod())) {
                 sendError(exchange, 405, "Method Not Allowed");
                 return;
@@ -169,6 +177,9 @@ public final class ApiServer implements Closeable {
             cloudMock.stateStore().clear(service + "/");
         } else {
             cloudMock.stateStore().clearAll();
+            // Request history is a single shared journal with no per-service partition, so it is
+            // only cleared on a full reset, never on a single-service reset.
+            cloudMock.clearHistory();
         }
         return new ApiResponse(200, Map.of("status", "ok"));
     }
@@ -184,18 +195,6 @@ public final class ApiServer implements Closeable {
                 .toList();
 
         return new ApiResponse(200, Map.of("requests", items));
-    }
-
-    // -------------------------------------------------------------------------
-    // OpenAPI handler (outside the addRoute mechanism — no ApiResponse wrapping)
-    // -------------------------------------------------------------------------
-
-    private void handleOpenApi(HttpExchange exchange) throws IOException {
-        if (!"GET".equals(exchange.getRequestMethod())) {
-            sendError(exchange, 405, "Method Not Allowed");
-            return;
-        }
-        sendJson(exchange, 200, buildOpenApiSpec());
     }
 
     // -------------------------------------------------------------------------
@@ -284,7 +283,9 @@ public final class ApiServer implements Closeable {
     }
 
     private void sendError(HttpExchange exchange, int status, String message) throws IOException {
-        byte[] bytes = mapper.writeValueAsBytes(Map.of("error", message));
+        // Map.of rejects null values; an exception with no message must still produce valid JSON.
+        String safe = message != null ? message : "Internal Server Error";
+        byte[] bytes = mapper.writeValueAsBytes(Map.of("error", safe));
         exchange.getResponseHeaders().set(CONTENT_TYPE, APPLICATION_JSON);
         exchange.sendResponseHeaders(status, bytes.length);
         try (OutputStream out = exchange.getResponseBody()) {
@@ -300,12 +301,16 @@ public final class ApiServer implements Closeable {
         for (String pair : query.split("&")) {
             int eq = pair.indexOf('=');
             if (eq > 0) {
-                params.put(pair.substring(0, eq), pair.substring(eq + 1));
+                params.put(decode(pair.substring(0, eq)), decode(pair.substring(eq + 1)));
             } else {
-                params.put(pair, "");
+                params.put(decode(pair), "");
             }
         }
         return params;
+    }
+
+    private static String decode(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     // -------------------------------------------------------------------------

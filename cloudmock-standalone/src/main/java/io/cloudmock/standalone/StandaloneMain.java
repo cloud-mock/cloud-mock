@@ -15,6 +15,7 @@ public final class StandaloneMain {
     public static void main(String[] args) throws Exception {
         int port = PortResolver.resolve(args);
         int apiPort = ApiPortResolver.resolve(args);
+        int maxHistory = MaxHistoryResolver.resolve(args);
         List<String> available = ServiceDiscovery.discoverServiceIds();
         Set<String> requested = ModuleSelector.resolve(args);
         List<String> enabled = resolveEnabled(available, requested);
@@ -24,8 +25,10 @@ public final class StandaloneMain {
         System.out.println("[CloudMock] Enabled modules: " + join(enabled));
         System.out.println("[CloudMock] State storage: "
                 + (storeDir != null ? "persistent (" + storeDir + ")" : "in-memory (not persisted)"));
+        System.out.println("[CloudMock] Request history: "
+                + (maxHistory > 0 ? "last " + maxHistory + " entries" : "unlimited"));
 
-        CloudMock cloudMock = new CloudMock().withPort(port);
+        CloudMock cloudMock = new CloudMock().withPort(port).withMaxRequestHistory(maxHistory);
         if (requested != null) {
             cloudMock.withEnabledServices(enabled);
         }

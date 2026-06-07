@@ -54,6 +54,9 @@ public final class CloudMock implements AutoCloseable {
 
     private static final String ENDPOINT_PROPERTY = "aws.endpoint-url";
 
+    /** Default cap on retained request-history entries; bounds memory in long-lived processes. */
+    public static final int DEFAULT_MAX_REQUEST_HISTORY = 1000;
+
     private WireMockServer server;
     private WireMockStubRegistrar registrar;
     private FaultEngine faultEngine;
@@ -61,6 +64,7 @@ public final class CloudMock implements AutoCloseable {
     private Instant startedAt;
     private final List<CloudMockService> explicitServices = new ArrayList<>();
     private int fixedPort = 0;
+    private int maxRequestHistory = DEFAULT_MAX_REQUEST_HISTORY; // <= 0 = unbounded
     private Set<String> enabledServiceIds; // null = register every discovered module
     private Path storeDirectory; // null = in-memory store
 
@@ -78,6 +82,22 @@ public final class CloudMock implements AutoCloseable {
             throw new CloudMockAlreadyStartedException();
         }
         this.storeDirectory = directory;
+        return this;
+    }
+
+    /**
+     * Caps the number of request-history entries retained in memory. Older entries are discarded
+     * once the limit is reached, bounding memory use in a long-lived standalone process. A value
+     * of {@code 0} or less retains an unbounded history. Defaults to
+     * {@link #DEFAULT_MAX_REQUEST_HISTORY}. Must be called before {@link #start()}.
+     *
+     * @throws CloudMockAlreadyStartedException if already started
+     */
+    public CloudMock withMaxRequestHistory(int maxEntries) {
+        if (server != null) {
+            throw new CloudMockAlreadyStartedException();
+        }
+        this.maxRequestHistory = maxEntries;
         return this;
     }
 
@@ -225,6 +245,15 @@ public final class CloudMock implements AutoCloseable {
     }
 
     /**
+     * Clears the captured request history, leaving registered stubs and stored state intact.
+     * Only valid after {@link #start()}.
+     */
+    public void clearHistory() {
+        requireStarted();
+        server.resetRequests();
+    }
+
+    /**
      * Causes all stubs for {@code serviceId} to return an AWS-style throttling error
      * (HTTP 400, {@code ThrottlingException}) for the duration of the current test.
      *
@@ -320,6 +349,9 @@ public final class CloudMock implements AutoCloseable {
         WireMockConfiguration config = WireMockConfiguration.options()
                 .globalTemplating(true)
                 .extensions(new Md5HandlebarsHelper(), new BrownoutTransformer());
+        if (maxRequestHistory > 0) {
+            config.maxRequestJournalEntries(maxRequestHistory);
+        }
         if (fixedPort > 0) {
             config.port(fixedPort);
         } else {
