@@ -20,13 +20,13 @@ consumer code that module authors compile and extend.
 
 ## Acceptance criteria
 
-- [ ] Existing stub template generation is unchanged — contract-level modules are not affected
-- [ ] Each operation gets a generated typed response builder matching its Smithy output shape
-- [ ] Response builders handle serialisation to the correct wire format (JSON or XML) automatically
-- [ ] Required fields are enforced at compile time — module authors cannot forget them
-- [ ] Optional fields have sensible defaults where Smithy defines them
-- [ ] Generated builders have no dependency on WireMock types
-- [ ] Existing generated modules compile without changes after the refactor
+- [x] Existing stub template generation is unchanged — contract-level modules are not affected
+- [x] Each operation gets a generated typed response builder matching its Smithy output shape
+- [x] Response builders handle serialisation to the correct wire format (JSON or XML) automatically
+- [x] Required fields are enforced at compile time — module authors cannot forget them
+- [x] Optional fields have sensible defaults where Smithy defines them
+- [x] Generated builders have no dependency on WireMock types
+- [x] Existing generated modules compile without changes after the refactor
 
 ## Dependencies
 
@@ -43,3 +43,31 @@ consumer code that module authors compile and extend.
   enforce all of this so module authors cannot produce a malformed response.
 - The two-artefact approach (template + builder) means the same Smithy model serves both the stateless
   and stateful case. Modules opt into the builder when they add stateful support.
+
+## Implemented builder design
+
+Per operation, codegen emits `src/main/java/<pkg>/response/<OpName>ResponseBuilder.java` into the module
+(consumer code — module authors compile and extend it). One shared `ResponseSupport` class per module
+holds the serialiser; builders are otherwise self-contained (JDK types only, no cloudmock-core, AWS SDK,
+or WireMock imports), so they compile in isolation.
+
+- **Field surface from the Smithy output shape.** `@required` members become constructor parameters
+  (cannot be omitted); optional members become fluent setters returning `this`. Fields are stored in an
+  insertion-ordered `LinkedHashMap` and rendered by `build()`. An operation with no output (or, defensively,
+  a non-structure output under disabled validation) yields an empty builder rather than a generation error.
+- **Wire format is protocol-driven, chosen at generation time** (the protocol is uniform per service):
+  - `JSON_TARGET` / `REST_JSON` → flat JSON object via `ResponseSupport.toJson`.
+  - `REST_XML` → `<OutputShapeName>…</OutputShapeName>` via `ResponseSupport.toXml`.
+  - `FORM_URL` → SNS-style envelope `<OpResponse><OpResult>…</OpResult><ResponseMetadata><RequestId>…
+    </RequestId></ResponseMetadata></OpResponse>` with a fresh `UUID` per call.
+- **Wire name vs Java name are separated.** The serialised key honours `@jsonName` (JSON) / `@xmlName`
+  (XML) when present, falling back to the member name; the Java identifier always derives from the member
+  name. Reserved words are sanitised for the identifier only (e.g. `default` → `default_`) so generated
+  code compiles while the response body keeps the correct wire key.
+- **Type mapping** surfaces precise Java types — `Timestamp → java.time.Instant`,
+  `BigDecimal/BigInteger → java.math.*`, `enum → String`, `intEnum → Integer`, numerics to their boxed
+  types, `document → Object` — and only nested aggregates (`structure`/`union`/`map`/`list`) fall back to
+  generic collections.
+- **Verification.** A `JavaCompiler`-backed test compiles every generated builder across all protocol
+  fixtures (including reserved-word members and trait overrides), so syntactic/identifier defects fail the
+  build rather than shipping in generated output.
