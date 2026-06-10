@@ -90,7 +90,7 @@ cloudMock.stop();
 
 `CloudMock.start()` sets `aws.endpoint-url` automatically, so all AWS SDK v2 clients in the same JVM are redirected
 with no further configuration. For full JUnit lifecycle management, fault injection, and `@ExtendWith` usage, see the
-[Getting Started guide](https://cloud-mock.github.io/cloudmockgetting-started/).
+[Getting Started guide](https://cloud-mock.github.io/cloudmock/getting-started/).
 
 ## Standalone mode
 
