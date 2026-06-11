@@ -145,10 +145,12 @@ single runnable fat JAR. It is the drop-in replacement for LocalStack in local d
   `CloudMock.withMaxRequestHistory(int)`, which sets WireMock's `maxRequestJournalEntries`. A full `POST /api/reset`
   (no `service`) also clears the history via `CloudMock.clearHistory()`; a single-service reset does not.
 - **Module discovery:** `ServiceLoader` — the same mechanism as embedded mode; printed to stdout at startup
-- **Module selection:** `--modules=<a,b>` CLI argument or `CLOUDMOCK_MODULES` env var enables only the listed service
-  IDs (default: all bundled modules). Backed by `CloudMock.withEnabledServices(Collection<String>)` in core, which
-  filters `ServiceLoader` discovery. Naming an unknown module fails fast. Modules added via `withService` bypass the
-  filter.
+- **Service selection:** `--services=<a,b>` CLI argument or `CLOUDMOCK_SERVICES` env var enables only the listed
+  service IDs. Services are **opt-in**: with no selection the server starts but loads nothing, logging an actionable
+  warning that names `--services` / `CLOUDMOCK_SERVICES` and the available IDs. This matches embedded mode, where only
+  modules on the classpath load. Backed by `CloudMock.withEnabledServices(Collection<String>)` in core, which filters
+  `ServiceLoader` discovery (the launcher always passes the resolved set, empty when nothing is selected). Naming an
+  unknown service fails fast. Modules added via `withService` bypass the filter.
 - **Shutdown:** `Ctrl-C` / `SIGTERM` triggers a clean WireMock shutdown via a JVM shutdown hook, no stack trace
 - **State:** standalone and embedded mode share the same core engine and the same state behaviour. Modules built on
   the stateful handler overloads (issue #0044) return live data — e.g. SQS `ReceiveMessage` returns the payloads of
@@ -159,7 +161,7 @@ single runnable fat JAR. It is the drop-in replacement for LocalStack in local d
 - **Module isolation rule:** `cloudmock-standalone` is exempt from the inter-module isolation check in `build.gradle`
   because its purpose is to bundle all modules; this exemption is intentional and must not be extended to other modules
 - **API service filtering:** `StandaloneMain` filters discovered `CloudMockApiService` implementations by the enabled
-  module set, so a service disabled with `--modules` exposes neither stubs nor REST routes nor CLI commands
+  service set, so a service not enabled via `--services` exposes neither stubs nor REST routes nor CLI commands
 
 ## State store
 

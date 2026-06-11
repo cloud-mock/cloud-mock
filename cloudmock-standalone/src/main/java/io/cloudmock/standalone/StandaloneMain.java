@@ -29,12 +29,20 @@ public final class StandaloneMain {
         int apiPort = ApiPortResolver.resolve(args);
         int maxHistory = MaxHistoryResolver.resolve(args);
         List<String> available = ServiceDiscovery.discoverServiceIds();
-        Set<String> requested = ModuleSelector.resolve(args);
+        Set<String> requested = ServiceSelector.resolve(args);
         List<String> enabled = resolveEnabled(available, requested);
         Path storeDir = StoreDirectoryResolver.resolve(args);
 
-        System.out.println("[CloudMock] Available modules: " + join(available));
-        System.out.println("[CloudMock] Enabled modules: " + join(enabled));
+        System.out.println("[CloudMock] Available services: " + join(available));
+        System.out.println("[CloudMock] Enabled services: " + join(enabled));
+        if (enabled.isEmpty()) {
+            System.out.println(
+                    "[CloudMock] WARNING: no services enabled — the mock will serve nothing.");
+            System.out.println(
+                    "[CloudMock]          Enable services with --services=<id>[,<id>...] "
+                            + "or CLOUDMOCK_SERVICES=<id>[,<id>...].");
+            System.out.println("[CloudMock]          Available services: " + join(available));
+        }
         System.out.println(
                 "[CloudMock] State storage: "
                         + (storeDir != null
@@ -45,9 +53,9 @@ public final class StandaloneMain {
                         + (maxHistory > 0 ? "last " + maxHistory + " entries" : "unlimited"));
 
         CloudMock cloudMock = new CloudMock().withPort(port).withMaxRequestHistory(maxHistory);
-        if (requested != null) {
-            cloudMock.withEnabledServices(enabled);
-        }
+        // Always pass the enabled set (even when empty): the default is "no services", so the
+        // filter must be applied unconditionally rather than falling back to "all discovered".
+        cloudMock.withEnabledServices(enabled);
         if (storeDir != null) {
             cloudMock.withStoreDirectory(storeDir);
         }
@@ -83,12 +91,14 @@ public final class StandaloneMain {
 
     private static List<String> resolveEnabled(List<String> available, Set<String> requested) {
         if (requested == null) {
-            return available;
+            // No --services / CLOUDMOCK_SERVICES selection: load nothing. Services are opt-in,
+            // matching embedded mode where only modules placed on the classpath load.
+            return List.of();
         }
         List<String> unknown = requested.stream().filter(id -> !available.contains(id)).toList();
         if (!unknown.isEmpty()) {
             System.err.println(
-                    "[CloudMock] Unknown module(s): "
+                    "[CloudMock] Unknown service(s): "
                             + join(unknown)
                             + ". Available: "
                             + join(available));

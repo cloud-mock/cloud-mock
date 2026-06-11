@@ -78,7 +78,7 @@ Because everything is driven by `/api/status`, the console needs no change when 
   contributes routes under `/api/<service>/…`, each advertising a command name and parameters.
 - Start CloudMock with that module on the classpath and a panel for it appears in the service
   browser, with a form per route.
-- Restrict the loaded modules with `--modules=<a,b>` and the console shows only those services — a
+- Restrict the loaded services with `--services=<a,b>` and the console shows only those services — a
   service that is not loaded has no panel at all.
 
 !!! note "One state, two views"

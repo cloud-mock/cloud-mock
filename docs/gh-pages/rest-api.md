@@ -211,8 +211,8 @@ The spec updates automatically when modules are added or removed — no manual m
 ## Module routes
 
 Modules can expose their own routes under `/api/<serviceId>/…` by implementing the
-`CloudMockApiService` SPI interface. If a module JAR is not on the classpath — or the module is
-disabled with `--modules` — its routes do not exist; loading the module makes them available
+`CloudMockApiService` SPI interface. If a module JAR is not on the classpath — or the service is
+not enabled with `--services` — its routes do not exist; loading the module makes them available
 automatically. Each route may advertise a `command` name and `params`, which the [CLI](cli.md)
 turns into a `clm <service> <command>` subcommand.
 

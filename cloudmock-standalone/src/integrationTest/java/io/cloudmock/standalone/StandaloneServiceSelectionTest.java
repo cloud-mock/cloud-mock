@@ -16,17 +16,17 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
- * Verifies that {@code --modules=sqs} enables only the SQS module: SQS is served while a request
- * that would match the (unloaded) SNS module is not.
+ * Verifies that {@code --services=sqs} enables only the SQS service: SQS is served while a request
+ * that would match the (unloaded) SNS service is not.
  */
-class StandaloneModuleSelectionTest {
+class StandaloneServiceSelectionTest {
 
     private static final int PORT = 14577;
     private static StandaloneProcess process;
 
     @BeforeAll
     static void startServer() throws Exception {
-        process = StandaloneProcess.start(PORT, "--modules=sqs");
+        process = StandaloneProcess.start(PORT, "--services=sqs");
     }
 
     @AfterAll
@@ -39,12 +39,12 @@ class StandaloneModuleSelectionTest {
     @Test
     void startupLogReportsOnlySqsEnabled() throws Exception {
         assertTrue(
-                process.awaitOutput(l -> l.contains("Enabled modules: sqs"), 5_000),
+                process.awaitOutput(l -> l.contains("Enabled services: sqs"), 5_000),
                 "Expected startup log to report only sqs enabled, got: " + process.output());
     }
 
     @Test
-    void enabledModuleIsServed() {
+    void enabledServiceIsServed() {
         try (SqsClient sqs =
                 SqsClient.builder()
                         .endpointOverride(URI.create("http://localhost:" + PORT))
@@ -59,7 +59,7 @@ class StandaloneModuleSelectionTest {
     }
 
     @Test
-    void disabledModuleIsNotServed() throws Exception {
+    void disabledServiceIsNotServed() throws Exception {
         // SNS uses XML/Form routing on Action=Publish. With only sqs enabled, no stub
         // matches this request and WireMock returns 404.
         HttpClient client = HttpClient.newHttpClient();
@@ -74,6 +74,6 @@ class StandaloneModuleSelectionTest {
         assertEquals(
                 404,
                 response.statusCode(),
-                "SNS request should not be served when the sns module is not enabled");
+                "SNS request should not be served when the sns service is not enabled");
     }
 }

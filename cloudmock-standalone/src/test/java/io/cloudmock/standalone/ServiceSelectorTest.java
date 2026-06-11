@@ -6,36 +6,36 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-class ModuleSelectorTest {
+class ServiceSelectorTest {
 
     @Test
-    void returnsNullWhenNoFilterRequested() {
-        assertNull(ModuleSelector.resolve(new String[] {"--port=4566"}));
+    void returnsNullWhenNoSelectionRequested() {
+        assertNull(ServiceSelector.resolve(new String[] {"--port=4566"}));
     }
 
     @Test
     void parsesEqualsFormFlag() {
         assertEquals(
                 Set.of("sqs", "secretsmanager"),
-                ModuleSelector.resolve(new String[] {"--modules=sqs,secretsmanager"}));
+                ServiceSelector.resolve(new String[] {"--services=sqs,secretsmanager"}));
     }
 
     @Test
     void parsesSpaceSeparatedFlag() {
         assertEquals(
                 Set.of("sqs", "sns"),
-                ModuleSelector.resolve(new String[] {"--modules", "sqs,sns"}));
+                ServiceSelector.resolve(new String[] {"--services", "sqs,sns"}));
     }
 
     @Test
     void trimsWhitespaceAndDropsBlankEntries() {
         assertEquals(
                 Set.of("sqs", "s3"),
-                ModuleSelector.resolve(new String[] {"--modules= sqs , , s3 "}));
+                ServiceSelector.resolve(new String[] {"--services= sqs , , s3 "}));
     }
 
     @Test
-    void blankValueIsTreatedAsNoFilter() {
-        assertNull(ModuleSelector.resolve(new String[] {"--modules="}));
+    void blankValueIsTreatedAsNoSelection() {
+        assertNull(ServiceSelector.resolve(new String[] {"--services="}));
     }
 }

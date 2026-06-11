@@ -153,7 +153,7 @@ Because commands come from `/api/status`, the CLI needs no change when a module 
 - A module that implements [`CloudMockApiService`](module-authoring.md#8-exposing-cli-commands-via-the-rest-api)
   contributes routes under `/api/<service>/…`, each advertising a command name and parameters.
 - Start CloudMock with that module on the classpath and its commands appear under `clm <service>`.
-- Restrict the loaded modules with `--modules=<a,b>` and the CLI offers only those services — a
+- Restrict the loaded services with `--services=<a,b>` and the CLI offers only those services — a
   service that is not loaded has no command at all.
 
 ## Error behaviour

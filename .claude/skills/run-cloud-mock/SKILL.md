@@ -47,7 +47,7 @@ Options:
 - `--build` — build the JAR before starting
 - `--port=N` — override mock port (default 14566)
 - `--api-port=N` — override API port (default 14567)
-- `--modules=sqs,sns` — start with a subset of modules
+- `--services=sqs,sns` — enable a subset of services (the smoke test enables all of them by default)
 
 The script:
 
@@ -62,15 +62,16 @@ Server log is written to `/tmp/cloudmock-smoke.log` — check it if startup fail
 ## Run (human path)
 
 ```bash
-java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar
+java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar --services=sqs,sns,secretsmanager,s3
 # mock on :4566, API on :4567 — Ctrl-C to stop
+# services are opt-in: with no --services the server starts but serves nothing
 ```
 
 Port overrides:
 
 ```bash
 java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar \
-  --port=4566 --api-port=4567 --modules=sqs,sns
+  --port=4566 --api-port=4567 --services=sqs,sns
 ```
 
 ## REST API endpoints

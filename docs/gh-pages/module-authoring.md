@@ -269,7 +269,7 @@ io.cloudmock.myservice.CloudMockMyServiceApiService
 ```
 
 Now `clm myservice describe-widget --id w-123` works against any standalone instance that has the
-module loaded. Routes (and therefore CLI commands) for a module that is disabled with `--modules`
+module loaded. Routes (and therefore CLI commands) for a service that is not enabled with `--services`
 are not registered, keeping the stub view and the API view consistent.
 
 !!! note "State-backed or synthetic — your call"

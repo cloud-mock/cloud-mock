@@ -43,24 +43,33 @@ CloudMock engine and all current service modules bundled inside (SQS, SNS, Secre
 
 Port resolution precedence: `--port` flag → `CLOUDMOCK_PORT` env var → default `4566`.
 
-## Select which modules to enable
+## Select which services to enable
 
-By default every module bundled in the JAR is enabled. To run only a subset, pass a comma-separated list of service IDs.
-Modules not listed are not registered and will not serve any request.
+Services are **opt-in**: with no selection the server starts but loads nothing and prints a warning. Pass a
+comma-separated list of service IDs to enable them. Services not listed are not registered and will not serve any
+request.
 
 === "CLI flag"
 
     ```
-    java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar --modules=sqs,secretsmanager
+    java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar --services=sqs,secretsmanager
     ```
 
 === "Environment variable"
 
     ```
-    CLOUDMOCK_MODULES=sqs,secretsmanager java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar
+    CLOUDMOCK_SERVICES=sqs,secretsmanager java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar
     ```
 
-Module selection precedence: `--modules` flag → `CLOUDMOCK_MODULES` env var → all bundled modules.
+Service selection precedence: `--services` flag → `CLOUDMOCK_SERVICES` env var → nothing enabled.
+
+If you start with no `--services`, the server warns you and tells you how to enable services:
+
+```
+[CloudMock] WARNING: no services enabled — the mock will serve nothing.
+[CloudMock]          Enable services with --services=<id>[,<id>...] or CLOUDMOCK_SERVICES=<id>[,<id>...].
+[CloudMock]          Available services: sqs, sns, secretsmanager, s3
+```
 
 ### Limit retained request history
 
@@ -82,26 +91,26 @@ capped at the last 1000 entries by default. Override the cap, or remove it entir
 History cap precedence: `--max-history` flag → `CLOUDMOCK_MAX_HISTORY` env var → default `1000`.
 Pass `unlimited` (or `none`) to retain every request.
 
-If you name a module that is not on the classpath, the server fails fast with a clear error instead of starting up with a
+If you name a service that is not on the classpath, the server fails fast with a clear error instead of starting up with a
 silently missing service:
 
 ```
-[CloudMock] Unknown module(s): dynamo. Available: sqs, sns, secretsmanager, s3
+[CloudMock] Unknown service(s): dynamo. Available: sqs, sns, secretsmanager, s3
 ```
 
 ### Expected startup output
 
 ```
-[CloudMock] Available modules: sqs, sns, secretsmanager, s3
-[CloudMock] Enabled modules: sqs, secretsmanager
+[CloudMock] Available services: sqs, sns, secretsmanager, s3
+[CloudMock] Enabled services: sqs, secretsmanager
 [CloudMock] State storage: persistent (.cloudmock)
 [CloudMock] Request history: last 1000 entries
 CloudMock started on port 4566
 CloudMock API on port 4567
 ```
 
-The **Available** line lists every module bundled in the JAR; the **Enabled** line lists the ones actually serving
-requests. If a stub is not being served, check that its module appears on the Enabled line.
+The **Available** line lists every service bundled in the JAR; the **Enabled** line lists the ones actually serving
+requests. If a stub is not being served, check that its service appears on the Enabled line.
 
 The REST API is available at `http://localhost:4567` — see [REST API](rest-api.md) for the full reference, drive
 the instance from the terminal with the [CLI](cli.md) (`clm` / `cloudmock`), or inspect it visually in the browser

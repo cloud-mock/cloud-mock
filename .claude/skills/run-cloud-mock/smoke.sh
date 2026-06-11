@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke test driver for CloudMock standalone server.
-# Usage: ./smoke.sh [--port=N] [--api-port=N] [--modules=a,b] [--build]
+# Usage: ./smoke.sh [--port=N] [--api-port=N] [--services=a,b] [--build]
 # Starts the server, exercises each AWS protocol + all REST API routes, then stops it.
 
 set -euo pipefail
@@ -10,18 +10,25 @@ JAR="$REPO_ROOT/cloudmock-standalone/build/libs/cloudmock-standalone.jar"
 PORT=14566
 API_PORT=14567
 EXTRA_ARGS=()
+SERVICES_SET=false
 
 for arg in "$@"; do
   case "$arg" in
     --port=*)      PORT="${arg#--port=}" ;;
     --api-port=*)  API_PORT="${arg#--api-port=}" ;;
-    --modules=*)   EXTRA_ARGS+=("$arg") ;;
+    --services=*)  EXTRA_ARGS+=("$arg"); SERVICES_SET=true ;;
     --build)
       echo "==> Building standalone JAR..."
       cd "$REPO_ROOT" && ./gradlew :cloudmock-standalone:shadowJar -q
       ;;
   esac
 done
+
+# Services are opt-in: the server loads nothing unless --services is given. The smoke test
+# exercises every protocol, so enable all of them when the caller did not pick a subset.
+if [[ "$SERVICES_SET" == false ]]; then
+  EXTRA_ARGS+=("--services=sqs,sns,secretsmanager,s3")
+fi
 
 if [[ ! -f "$JAR" ]]; then
   echo "JAR not found: $JAR"

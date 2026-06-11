@@ -20,7 +20,8 @@ class StandaloneIntegrationTest {
 
     @BeforeAll
     static void startServer() throws Exception {
-        process = StandaloneProcess.start(PORT);
+        // Services are opt-in: declare sqs so ListQueues is served.
+        process = StandaloneProcess.start(PORT, "--services=sqs");
     }
 
     @AfterAll

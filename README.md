@@ -101,12 +101,12 @@ once, leave it running, and point any application that reads `AWS_ENDPOINT_URL` 
 
 ```
 ./gradlew :cloudmock-standalone:shadowJar
-java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar
+java -jar cloudmock-standalone/build/libs/cloudmock-standalone.jar --services=sqs,secretsmanager
 ```
 
-The server binds to port `4566` by default (override with `--port=<n>` or `CLOUDMOCK_PORT`). All bundled modules are
-enabled unless you select a subset with `--modules=sqs,secretsmanager` (or `CLOUDMOCK_MODULES`). `Ctrl-C` shuts it down
-cleanly.
+The server binds to port `4566` by default (override with `--port=<n>` or `CLOUDMOCK_PORT`). Services are opt-in: choose
+which ones to enable with `--services=sqs,secretsmanager` (or `CLOUDMOCK_SERVICES`). With no `--services` the server
+starts but serves nothing and prints a warning telling you how to enable services. `Ctrl-C` shuts it down cleanly.
 
 ```
 export AWS_ENDPOINT_URL=http://localhost:4566
