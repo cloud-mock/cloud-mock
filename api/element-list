@@ -1,0 +1,15 @@
+io.cloudmock.codegen
+io.cloudmock.core
+io.cloudmock.core.exception
+io.cloudmock.core.internal
+io.cloudmock.core.internal.store
+io.cloudmock.core.restapi
+io.cloudmock.core.spi
+io.cloudmock.core.spi.restapi
+io.cloudmock.junit
+io.cloudmock.s3
+io.cloudmock.sdkv1
+io.cloudmock.secretsmanager
+io.cloudmock.sns
+io.cloudmock.sqs
+io.cloudmock.standalone
