@@ -33,6 +33,12 @@ final class ModulesDirResolver {
                 break;
             }
         }
+        // A blank value (e.g. `--modules-dir=`) is treated as "not provided" rather than the empty
+        // path, which Path.of("") resolves to the current working directory. Fall through to the
+        // env var and then the default, matching StoreDirectoryResolver's handling of blank input.
+        if (explicit != null && explicit.isBlank()) {
+            explicit = null;
+        }
         if (explicit == null) {
             String env = System.getenv("CLOUDSTUB_MODULES_DIR");
             if (env != null && !env.isBlank()) {
@@ -40,7 +46,7 @@ final class ModulesDirResolver {
             }
         }
         if (explicit != null) {
-            Path dir = Path.of(explicit);
+            Path dir = Path.of(explicit.trim());
             if (!Files.isDirectory(dir)) {
                 System.err.println(
                         "[CloudStub] ERROR: modules directory '"

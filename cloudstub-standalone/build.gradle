@@ -7,9 +7,11 @@ apply plugin: 'application'
 apply plugin: 'io.github.goooler.shadow'
 
 configurations {
-    // Collects module jars that integration tests copy into a temp plugin directory. Not a
-    // compile/runtime dependency — the standalone fat JAR does not bundle these; they are loaded
-    // at runtime via PluginLoader from the plugin directory.
+    // Collects the in-repo module jars used to populate a plugin directory for local dev (`run`)
+    // and the integration-test subprocess. This is NOT a compile/runtime dependency — the
+    // standalone fat JAR does not bundle these; they are loaded at runtime via PluginLoader from
+    // the plugin directory. The name contains "test" so it stays exempt from the inter-module
+    // isolation check (it is a jar-collection bucket, not this module's own classpath).
     integrationTestModuleJars {
         canBeResolved = true
         canBeConsumed = false
@@ -49,9 +51,14 @@ components.java.withVariantsFromConfiguration(configurations.runtimeElements) { 
 
 // Start from the repo root so the persistent `.cloudstub` store directory and any relative paths
 // resolve identically to the `java -jar` invocation.
-//   ./gradlew :cloudstub-standalone:run --args="--port=4566 --api-port=4567"
+//   ./gradlew :cloudstub-standalone:run --args="--services=sqs,sns,secretsmanager,s3"
+// The fat JAR no longer bundles modules, so make the in-repo module jars discoverable by pointing
+// the plugin directory at the copied jars via CLOUDSTUB_MODULES_DIR. Services remain opt-in: pass
+// --services (or CLOUDSTUB_SERVICES) to enable the ones you want.
 run {
     workingDir = rootProject.projectDir
+    dependsOn 'copyModuleJars'
+    environment 'CLOUDSTUB_MODULES_DIR', "${buildDir}/modules"
 }
 
 jar {
@@ -68,11 +75,11 @@ shadowJar {
     mergeServiceFiles()
 }
 
-// Copies resolved module jars into build/integrationTest/modules so the subprocess launched by
-// integration tests has a populated plugin directory to point at via --modules-dir.
+// Copies the in-repo module jars into build/modules so both the `run` task and the integration-test
+// subprocess have a populated plugin directory to point at (via CLOUDSTUB_MODULES_DIR / --modules-dir).
 tasks.register('copyModuleJars', Copy) {
     from configurations.integrationTestModuleJars
-    into "${buildDir}/integrationTest/modules"
+    into "${buildDir}/modules"
 }
 
 // The end-to-end tests in src/integrationTest launch the fat JAR as a subprocess, so they need it
@@ -81,5 +88,5 @@ tasks.register('copyModuleJars', Copy) {
 tasks.named('integrationTest') {
     dependsOn shadowJar, copyModuleJars
     systemProperty 'cloudstub.standalone.jar', shadowJar.archiveFile.get().asFile.absolutePath
-    systemProperty 'cloudstub.standalone.modules.dir', "${buildDir}/integrationTest/modules"
+    systemProperty 'cloudstub.standalone.modules.dir', "${buildDir}/modules"
 }

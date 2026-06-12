@@ -1,7 +1,5 @@
 package io.cloudstub.standalone;
 
-import org.jspecify.annotations.NonNull;
-
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.BufferedReader;
@@ -14,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Launches the standalone fat JAR as a subprocess and waits until it is accepting connections.
@@ -71,7 +70,9 @@ final class StandaloneProcess implements AutoCloseable {
     }
 
     @NonNull
-    private static StandaloneProcess getStandaloneProcess(int port, List<String> command, String[] extraArgs) throws IOException, InterruptedException {
+    private static StandaloneProcess getStandaloneProcess(
+            int port, List<String> command, String[] extraArgs)
+            throws IOException, InterruptedException {
         command.addAll(List.of(extraArgs));
 
         ProcessBuilder pb = new ProcessBuilder(command);

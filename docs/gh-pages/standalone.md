@@ -12,14 +12,50 @@ and point your application at `http://localhost:4566`.
 | Docker Compose local environment                  | **Standalone mode**                                               |
 | CI pipeline tests                                 | [Embedded mode](getting-started.md) — faster, no external process |
 
+## Distribution model
+
+The standalone server is a thin runtime: the launcher plus `cloudstub-core`. **No service modules are bundled.**
+Service modules ship as separate jars that the launcher loads at runtime from a **plugin directory**. The model is:
+download the server jar once, then download the module jars you want and drop them in the plugin directory.
+
+- `--modules-dir` controls what is **available** — which module jars are on the classpath.
+- `--services` (below) narrows what is **enabled** among those.
+
 ## Build the fat JAR
 
 ```
 ./gradlew :cloudstub-standalone:shadowJar
 ```
 
-This produces `cloudstub-standalone/build/libs/cloudstub-standalone.jar` — a single self-contained JAR with the
-CloudStub engine and all current service modules bundled inside (SQS, SNS, Secrets Manager, S3).
+This produces `cloudstub-standalone/build/libs/cloudstub-standalone.jar` — the CloudStub engine (with shaded
+WireMock/Jetty) and the launcher, and nothing else. Each service module (`cloudstub-sqs`, `cloudstub-sns`,
+`cloudstub-secretsmanager`, `cloudstub-s3`) is a separate jar built by its own module.
+
+## Add the modules you want
+
+The launcher loads every `.jar` in the plugin directory (default `./modules`):
+
+```
+mkdir -p modules
+cp path/to/cloudstub-sqs.jar path/to/cloudstub-s3.jar modules/
+java -jar cloudstub-standalone/build/libs/cloudstub-standalone.jar --services=sqs,s3
+```
+
+=== "Custom plugin directory (CLI flag)"
+
+    ```
+    java -jar cloudstub-standalone/build/libs/cloudstub-standalone.jar --modules-dir=/opt/cloudstub/modules --services=sqs
+    ```
+
+=== "Custom plugin directory (environment variable)"
+
+    ```
+    CLOUDSTUB_MODULES_DIR=/opt/cloudstub/modules java -jar cloudstub-standalone/build/libs/cloudstub-standalone.jar --services=sqs
+    ```
+
+Plugin directory precedence: `--modules-dir` flag → `CLOUDSTUB_MODULES_DIR` env var → default `./modules`. An
+explicitly provided `--modules-dir` that does not exist fails fast with a clear error; a missing or empty default
+`./modules` is **not** fatal — the server starts and serves nothing.
 
 ## Start the server
 
@@ -101,6 +137,7 @@ silently missing service:
 ### Expected startup output
 
 ```
+[CloudStub] Plugin directory: /path/to/modules
 [CloudStub] Available services: sqs, sns, secretsmanager, s3
 [CloudStub] Enabled services: sqs, secretsmanager
 [CloudStub] State storage: persistent (.cloudstub)
@@ -109,8 +146,10 @@ CloudStub started on port 4566
 CloudStub API on port 4567
 ```
 
-The **Available** line lists every service bundled in the JAR; the **Enabled** line lists the ones actually serving
-requests. If a stub is not being served, check that its service appears on the Enabled line.
+The **Plugin directory** line shows where module jars are loaded from; the **Available** line lists every service
+discovered in that directory; the **Enabled** line lists the ones actually serving requests. If a stub is not being
+served, check that its module jar is in the plugin directory (Available) and that its service appears on the Enabled
+line.
 
 The REST API is available at `http://localhost:4567` — see [REST API](rest-api.md) for the full reference, drive
 the instance from the terminal with the [CLI](cli.md) (`clm` / `cloudstub`), or inspect it visually in the browser
@@ -151,9 +190,9 @@ By default, CloudStub writes INFO-level output to stdout via `slf4j-simple`. To 
 registration and full request/response bodies), pass `-Dcloudstub.debug=true` or set `CLOUDSTUB_DEBUG=true`. See
 [Logging](logging.md) for the full reference, log levels, and how to plug in a custom implementation.
 
-## Bundled service modules
+## Available service modules
 
-The standalone JAR bundles the following modules. No additional JARs are required:
+Each module is a separate jar; drop the ones you want into the plugin directory:
 
 | Module                     | Service         | Protocol            |
 |----------------------------|-----------------|---------------------|
