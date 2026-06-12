@@ -4,7 +4,7 @@
 // cloudstub-core. Application is applied first so the shadow plugin's application integration sees
 // the configured main class; the two coexist by design.
 apply plugin: 'application'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'io.github.goooler.shadow'
 
 dependencies {
     implementation project(':cloudstub-core')
