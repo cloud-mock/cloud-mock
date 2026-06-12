@@ -5,7 +5,7 @@ import org.gradle.process.CommandLineArgumentProvider
 // the two coexist by design. Application is applied first so the shadow plugin's application
 // integration (start scripts, distribution) sees the configured main class.
 apply plugin: 'application'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'io.github.goooler.shadow'
 
 dependencies {
     implementation libs.smithy.model
