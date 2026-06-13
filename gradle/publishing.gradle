@@ -2,14 +2,17 @@
 // `apply from:`. `project` here is the subproject the script is applied to.
 //
 // Module classes:
-//   - examples + scaffolding modules (cloudstub-dynamodb / cloudstub-lambda): not published
+//   - not published yet: examples, scaffolding, and the services not yet rolled out
 //   - plain library modules: published via the vanniktech plugin (POM + -sources + -javadoc)
 //   - shadow/tool modules (core, standalone, codegen): publish their shadow (fat) JAR as primary
 
 def isExample = project.path == ':cloudstub-example' || project.path.startsWith(':cloudstub-example:')
-def isScaffold = project.name in ['cloudstub-dynamodb', 'cloudstub-lambda']
 def isShadowModule = project.name in ['cloudstub-core', 'cloudstub-standalone', 'cloudstub-codegen']
-def publishable = !isExample && !isScaffold
+// Scaffolding (not implemented) plus the service modules rolled out one issue at a time — sqs is
+// published first; sns/secretsmanager/s3 follow in later issues.
+def notPublishedYet = ['cloudstub-dynamodb', 'cloudstub-lambda',
+                       'cloudstub-sns', 'cloudstub-secretsmanager', 'cloudstub-s3']
+def publishable = !isExample && !(project.name in notPublishedYet)
 
 // Plain library modules: the vanniktech plugin builds the -sources/-javadoc JARs and a complete
 // POM. With no signing/remote repo configured, publishToMavenLocal still works.
