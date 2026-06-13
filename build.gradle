@@ -107,15 +107,19 @@ tasks.register('checkCompatibility') {
     dependsOn ':cloudstub-example:junit5:test', ':cloudstub-example:junit6:test'
 }
 
-// docs/api/ destination is intentional: the docs workflow copies it under the MkDocs site at /api/.
+// docs/javadoc/ destination is intentional: the docs workflow copies it under the MkDocs site at /javadoc/.
 tasks.register('generateDocs', Javadoc) {
     group = 'documentation'
-    description = 'Generates aggregated Javadoc for the public modules into docs/api/.'
-    destinationDir = file("$rootDir/docs/api")
+    description = 'Generates aggregated Javadoc for the public modules into docs/javadoc/.'
+    destinationDir = file("$rootDir/docs/javadoc")
     title = 'CloudStub API'
     // Doc warnings must not fail the build — this produces a reference, not lint enforcement.
     failOnError = false
     options.addStringOption('Xdoclint:none', '-quiet')
+    options.addStringOption('-add-stylesheet', file("$rootDir/gradle/javadoc/cloudstub-javadoc.css").absolutePath)
+    options.addStringOption('top',
+        '<div class="cloudstub-banner">' +
+        '<a href="https://cloudstub.github.io/cloudstub/">&#8592; Back to CloudStub Docs</a></div>')
 }
 
 // projectsEvaluated: the doc modules' source sets and classpaths must be configured first.
