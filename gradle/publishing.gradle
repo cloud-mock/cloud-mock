@@ -1,0 +1,76 @@
+// Maven publication configuration, applied per-subproject from the root build.gradle via
+// `apply from:`. `project` here is the subproject the script is applied to.
+//
+// Module classes:
+//   - not published yet: examples, scaffolding, and the services not yet rolled out
+//   - plain library modules: published via the vanniktech plugin (POM + -sources + -javadoc)
+//   - shadow/tool modules (core, standalone, codegen): publish their shadow (fat) JAR as primary
+
+def isExample = project.path == ':cloudstub-example' || project.path.startsWith(':cloudstub-example:')
+def isShadowModule = project.name in ['cloudstub-core', 'cloudstub-standalone', 'cloudstub-codegen']
+// Scaffolding (not implemented) plus the service modules rolled out one issue at a time — sqs is
+// published first; sns/secretsmanager/s3 follow in later issues.
+def notPublishedYet = ['cloudstub-dynamodb', 'cloudstub-lambda',
+                       'cloudstub-sns', 'cloudstub-secretsmanager', 'cloudstub-s3']
+def publishable = !isExample && !(project.name in notPublishedYet)
+
+// Plain library modules: the vanniktech plugin builds the -sources/-javadoc JARs and a complete
+// POM. With no signing/remote repo configured, publishToMavenLocal still works.
+if (publishable && !isShadowModule) {
+    apply plugin: 'java-library'
+    apply plugin: 'com.vanniktech.maven.publish'
+
+    def pomInfo = [
+        'cloudstub-junit'  : ['CloudStub JUnit',
+            'JUnit 5 and 6 extension for CloudStub: lifecycle management and AWS fault injection.'],
+        'cloudstub-sqs'    : ['CloudStub SQS',
+            'CloudStub stub module for Amazon SQS with stateful send/receive backed by the state store.'],
+        'cloudstub-sdk-v1' : ['CloudStub AWS SDK v1 Support',
+            'CloudStub companion library for AWS SDK v1 consumers.'],
+    ]
+
+    mavenPublishing {
+        pom {
+            name = pomInfo[project.name][0]
+            description = pomInfo[project.name][1]
+            inceptionYear = '2026'
+            url = 'https://github.com/cloudstub/cloudstub'
+            licenses {
+                license {
+                    name = 'The Apache License, Version 2.0'
+                    url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    distribution = 'repo'
+                }
+            }
+            developers {
+                developer {
+                    id = 'cloudstub'
+                    name = 'CloudStub'
+                    url = 'https://github.com/cloudstub'
+                }
+            }
+            scm {
+                url = 'https://github.com/cloudstub/cloudstub'
+                connection = 'scm:git:https://github.com/cloudstub/cloudstub.git'
+                developerConnection = 'scm:git:ssh://git@github.com/cloudstub/cloudstub.git'
+            }
+        }
+    }
+}
+
+// Shadow/tool modules publish their shadow (fat) JAR. In afterEvaluate so components.shadow
+// exists; scoped to shadow modules so the vanniktech modules above aren't double-published.
+if (publishable && isShadowModule) {
+    apply plugin: 'maven-publish'
+
+    afterEvaluate {
+        publishing {
+            publications {
+                mavenJava(MavenPublication) {
+                    from(components.findByName('shadow') ?: components.java)
+                    artifactId = project.name
+                }
+            }
+        }
+    }
+}
