@@ -3,6 +3,7 @@ buildscript {
     dependencies {
         classpath 'io.github.goooler.shadow:shadow-gradle-plugin:8.1.8'
         classpath 'com.diffplug.spotless:spotless-plugin-gradle:6.25.0'
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.30.0'
     }
 }
 
@@ -31,14 +32,9 @@ subprojects {
     // group and version are single-sourced from the root gradle.properties so a release bump is
     // one line; they propagate to every project (root + subprojects).
 
-    // Example projects (the cloudstub-example container and its junit5/junit6 children) are
-    // demonstration apps, not libraries — they are never published. Excluding them here keeps
-    // publishing self-correcting: no io.github.cloudstub:junit5 / :junit6 / :cloudstub-example
-    // artifacts leak to a repository regardless of how the example tree is restructured.
-    def publishable = project.path != ':cloudstub-example' && !project.path.startsWith(':cloudstub-example:')
-    if (publishable) {
-        apply plugin: 'maven-publish'
-    }
+    // Maven publication wiring (module classification, POM metadata, sources/javadoc) lives in its
+    // own script to keep this build readable. Applied per-subproject.
+    apply from: rootProject.file('gradle/publishing.gradle')
 
     java {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -88,22 +84,6 @@ subprojects {
         classpath = sourceSets.integrationTest.runtimeClasspath
         useJUnitPlatform()
         shouldRunAfter tasks.named('test')
-    }
-
-    // Publishing is configured in afterEvaluate so that modules applying the
-    // Shadow plugin (cloudstub-core) can publish the shadow JAR via components.shadow
-    // rather than the empty components.java.
-    afterEvaluate {
-        if (publishable) {
-            publishing {
-                publications {
-                    mavenJava(MavenPublication) {
-                        from(components.findByName('shadow') ?: components.java)
-                        artifactId = project.name
-                    }
-                }
-            }
-        }
     }
 
     // Service modules may depend on cloudstub-core (the SPI lives there), but no service module
